@@ -37,7 +37,8 @@ class XlsxTableHeader:
         """
         #获取表头中合并的区域
         self.get_merged_range()
-        self.get_theader_merged_ranges()
+        marea_list = self.get_theader_merged_ranges()
+        self.merged_cells_check(self.ws,marea_list)
         #获取未合并的区域
         nmcells = self.get_not_merged_cells()
         canmcells = self.get_can_merged_range(nmcells)
@@ -214,13 +215,13 @@ class XlsxTableHeader:
         for merged_area in merged_areas_list:
             merged_cells = self.get_all_cells(merged_area)
             scell_num = merged_cells[0]
-            if ws[scell_num] != None and string.strip(ws[scell_num]) =="":
+            if ws[scell_num].value != None and string.strip(str(ws[scell_num].value)) !="":
                 pass
             else:
                 for idx in range(1,len(merged_cells)):
                     cell_num = merged_cells[idx]
-                    if ws[cell_num] != None and string.strip(ws[cell_num]) != "":
-                        ws[scell_num].value = ws[cell_num]
+                    if ws[cell_num].value != None and string.strip(str(ws[cell_num].value)) != "":
+                        ws[scell_num].value = ws[cell_num].value
                         ws[cell_num].value = None
     
     def first_cell_value(self,ws,merged_areas_list):
@@ -291,7 +292,7 @@ class XlsxTableHeader:
         
 
 if __name__ == "__main__":
-    ch_xl = XlsxTableHeader("A0101c.xlsx")
+    ch_xl = XlsxTableHeader("B0803c.xlsx")
     ch_xl.get_theader_content()
     for line in ch_xl.content:
         for item in line:
