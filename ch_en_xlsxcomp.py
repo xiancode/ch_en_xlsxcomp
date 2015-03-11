@@ -27,10 +27,12 @@ class XlsxTableHeader:
             self.get_last_col()
             self.get_theader_range()
             self.col_row_range()
+            self.start = True
             print "表头区域是",self.theader_range
             
         except:
             print "初始化",filename,"失败"
+            self.start = False
     def get_theader_content(self):
         """
         归并表头单元格内容，获取最终归并的单元格的值
@@ -81,10 +83,11 @@ class XlsxTableHeader:
         """
         #从表头首行、末列开始遍历，寻找单元格顶部分割线与首列一样的
         self.theader_end_col = ""
-        theader_top_line = self.ws['A'+str(self.theader_start_row)].style.border.top.style
+        #theader_top_line = self.ws['A'+str(self.theader_start_row)].style.border.top.style
         for i in range(1,self.max_col+1)[::-1]:
-            cur_cell = self.ws[ce.get_column_letter(i)+str(self.theader_start_row)]
-            if cur_cell.style.border.top.style == theader_top_line:
+            cur_cell = self.ws[ce.get_column_letter(i)+str(self.theader_end_row+1)]
+            #if cur_cell.style.border.top.style == theader_top_line:
+            if cur_cell.value != None:
                 self.theader_end_col = ce.get_column_letter(i)
                 break
         return self.theader_end_col
@@ -215,12 +218,13 @@ class XlsxTableHeader:
         for merged_area in merged_areas_list:
             merged_cells = self.get_all_cells(merged_area)
             scell_num = merged_cells[0]
-            if ws[scell_num].value != None and string.strip(str(ws[scell_num].value)) !="":
+            #不用把单元格值转化为str 然后在进行string.strip() ,可以直接对单元格值进行string.strip()
+            if ws[scell_num].value != None and string.strip(ws[scell_num].value) !="":
                 pass
             else:
                 for idx in range(1,len(merged_cells)):
                     cell_num = merged_cells[idx]
-                    if ws[cell_num].value != None and string.strip(str(ws[cell_num].value)) != "":
+                    if ws[cell_num].value != None and string.strip(ws[cell_num].value) != "":
                         ws[scell_num].value = ws[cell_num].value
                         ws[cell_num].value = None
     
@@ -292,8 +296,9 @@ class XlsxTableHeader:
         
 
 if __name__ == "__main__":
-    ch_xl = XlsxTableHeader("B0803c.xlsx")
-    ch_xl.get_theader_content()
+    ch_xl = XlsxTableHeader("B0401c.xlsx")
+    if ch_xl.start:
+        ch_xl.get_theader_content()
     for line in ch_xl.content:
         for item in line:
             print item,"|",
