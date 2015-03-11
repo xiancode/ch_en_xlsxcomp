@@ -3,7 +3,9 @@
 
 import os
 import os.path
+import string
 from openpyxl import load_workbook
+import openpyxl.cell as ce
 
 
 class XlsxTableHeader:
@@ -76,12 +78,13 @@ class XlsxTableHeader:
         """
         根据线条来确定最后一列的列号
         """
+        #从表头首行、末列开始遍历，寻找单元格顶部分割线与首列一样的
         self.theader_end_col = ""
         theader_top_line = self.ws['A'+str(self.theader_start_row)].style.border.top.style
-        for i in range(ord('A'),ord('A')+self.max_col+1):
-            cur_cell = self.ws[chr(i)+str(self.theader_start_row)]
-            if cur_cell.style.border.top.style != theader_top_line:
-                self.theader_end_col = chr(i-1)
+        for i in range(1,self.max_col+1)[::-1]:
+            cur_cell = self.ws[ce.get_column_letter(i)+str(self.theader_start_row)]
+            if cur_cell.style.border.top.style == theader_top_line:
+                self.theader_end_col = ce.get_column_letter(i)
                 break
         return self.theader_end_col
     
@@ -204,6 +207,28 @@ class XlsxTableHeader:
             result.append(samecol_list)
         return result
     
+    def merged_cells_check(self,ws,merged_areas_list):
+        """
+        合并单元格的检测,是否值在第一个单元格
+        """
+        for merged_area in merged_areas_list:
+            merged_cells = self.get_all_cells(merged_area)
+            scell_num = merged_cells[0]
+            if ws[scell_num] != None and string.strip(ws[scell_num]) =="":
+                pass
+            else:
+                for idx in range(1,len(merged_cells)):
+                    cell_num = merged_cells[idx]
+                    if ws[cell_num] != None and string.strip(ws[cell_num]) != "":
+                        ws[scell_num].value = ws[cell_num]
+                        ws[cell_num].value = None
+    
+    def first_cell_value(self,ws,merged_areas_list):
+        """
+        合并区域中的值置于第一个单元格
+        """
+        pass
+  
     def merge_range(self,ws,can_merged_range):
         """
         
@@ -268,7 +293,10 @@ class XlsxTableHeader:
 if __name__ == "__main__":
     ch_xl = XlsxTableHeader("A0101c.xlsx")
     ch_xl.get_theader_content()
-    print ch_xl.content
+    for line in ch_xl.content:
+        for item in line:
+            print item,"|",
+        print "-->"
     print "---"
     
     
