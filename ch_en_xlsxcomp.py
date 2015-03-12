@@ -15,6 +15,7 @@ class XlsxTableHeader:
     def __init__(self,filename):
         try:
             self.wb = load_workbook(filename)
+            self.sname = filename[-5]+"_tmp.xlsx"
             self.ws = self.wb.active
             #最大行
             self.max_col  = self.ws.get_highest_column()
@@ -45,7 +46,9 @@ class XlsxTableHeader:
         nmcells = self.get_not_merged_cells()
         canmcells = self.get_can_merged_range(nmcells)
         self.merge_range(self.ws,canmcells)
-        self.get_content()
+        cont = self.get_content()
+        #self.wb.save(self.sname)
+        return cont
         
             
     def get_top_part_row(self):
@@ -246,7 +249,7 @@ class XlsxTableHeader:
             #判断列是否相同
             if merge_range[0] == merge_range[3]:
                 all_cells = self.get_all_cells(merge_range)
-                print "all_cells",all_cells
+                #print "all_cells",all_cells
                 #
                 for cell in all_cells:
                     if ws[cell].value == None:
@@ -257,11 +260,11 @@ class XlsxTableHeader:
                         if ws[all_cells[0]].style.border.top.style and ws[all_cells[-1]].style.border.bottom.style \
                             and ws[all_cells[0]].style.border.bottom.style == None  \
                             and ws[all_cells[-1]].style.border.top.style == None:
-                            print "合并前",ws[all_cells[0]].value,ws[all_cells[-1]].value
+                            #print "合并前",ws[all_cells[0]].value,ws[all_cells[-1]].value
                             ws[all_cells[0]].value = ws[all_cells[0]].value  + " " + ws[all_cells[-1]].value
                             ws[all_cells[-1]].value = None
-                            print all_cells,"单元格值合并成功"
-                            print "合并后",ws[all_cells[0]].value,ws[all_cells[-1]].value
+                            #print all_cells,"单元格值合并成功"
+                            #print "合并后",ws[all_cells[0]].value,ws[all_cells[-1]].value
                         else:
                             print all_cells,"单元格值不能合并"
                     #超过两行，判断中间行是否包含边框
@@ -278,7 +281,7 @@ class XlsxTableHeader:
                                 for idx in range(1,len(all_cells))[::-1]:
                                     ws[all_cells[idx-1]].value = ws[all_cells[idx-1]].value + " " + ws[all_cells[idx]].value 
                                     ws[all_cells[idx]].value  = ""
-                                print all_cells,"单元格值合并成功！"   
+                                #print all_cells,"单元格值合并成功！"   
                 else:
                     print "行数少于两行 error"
     
@@ -294,16 +297,77 @@ class XlsxTableHeader:
             self.content.append(tmp_list)
         return self.content
         
+#主函数
+def ch_en_xlsxcomp():
+    """
+    根据给定的中英文对应表格，完成中英文表头的对应输出
+    """
+    fout = open("TableHeaderContent.txt",'a')
+    #flog = open("log.txt","w")
+    conf_file = open("conf.data","r")
+    conf_lines = conf_file.readlines()
+    ch_dir = ""
+    en_dir = ""
+    if len(conf_lines) == 2:
+        ch_dir = conf_lines[0].strip()
+        en_dir = conf_lines[1].strip()
+    else:
+        print "conf.data error!"
+    #获取文件名    
+    filename_list = []
+    for parent,dirnames,filenames in os.walk(ch_dir):
+        for filename in filenames:
+            filename_list.append(filename)
+    
+    #
+    for filename in filename_list:
+        ch_xlsx_name = ch_dir + filename
+        en_xlsx_name = en_dir + filename
+        print "当前处理文件：",filename
+        ch_xl = XlsxTableHeader(ch_xlsx_name)
+        en_xl = XlsxTableHeader(en_xlsx_name)
+        fout.write(filename+"----------\n")
+        if ch_xl.start and en_xl.start:
+            ch_content = ch_xl.get_theader_content()
+            en_content = en_xl.get_theader_content()
+            if len(ch_content) == len(en_content):
+                for idx_row in range(len(ch_content)):
+                    for idx_col in range(len(ch_content[idx_row])):
+                        if (ch_content[idx_row][idx_col] != None and ch_content[idx_row][idx_col] != "") \
+                            or (en_content[idx_row][idx_col] != None and en_content[idx_row][idx_col] != ""):
+                            ch_ = ch_content[idx_row][idx_col]
+                            en_ = en_content[idx_row][idx_col]
+                            if ch_:
+                                ch_ = ch_.replace("\n"," ")
+                            if en_:
+                                en_ = en_.replace("\n"," ")
+                            #print ch_,"||",en_
+                            fout.write(ch_.encode('UTF-8'))
+                            fout.write("||")
+                            fout.write(en_.encode('UTF-8'))
+                            fout.write("\n")
+                        else:
+                            pass    
+            else:
+                fout.write("表头合并后格式不一样\n")                    
+        else:
+            fout.write("文件初始化没有完成\n")
+            print "文件",filename,"有错误，请检查"
+    fout.close()
+    print "Compare End!"
+
 
 if __name__ == "__main__":
-    ch_xl = XlsxTableHeader("B0401c.xlsx")
-    if ch_xl.start:
-        ch_xl.get_theader_content()
-    for line in ch_xl.content:
-        for item in line:
-            print item,"|",
-        print "-->"
-    print "---"
+    ch_en_xlsxcomp()
+    print "End!"
+    #ch_xl = XlsxTableHeader("B0401c.xlsx")
+    #if ch_xl.start:
+    #    ch_xl.get_theader_content()
+        #for line in ch_xl.content:
+        #    for item in line:
+        #        print item,"|",
+        #    print "-->"
+        #print "---"
     
     
     
