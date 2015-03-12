@@ -15,7 +15,7 @@ class XlsxTableHeader:
     def __init__(self,filename):
         try:
             self.wb = load_workbook(filename)
-            self.sname = filename[-5]+"_tmp.xlsx"
+            #self.sname = filename[-5]+"_tmp.xlsx"
             self.ws = self.wb.active
             #最大行
             self.max_col  = self.ws.get_highest_column()
@@ -28,6 +28,8 @@ class XlsxTableHeader:
             self.get_last_col()
             self.get_theader_range()
             self.col_row_range()
+            #默认从第一列开始
+            self.theader_start_col_num = 1
             self.start = True
             print "表头区域是",self.theader_range
             
@@ -82,7 +84,7 @@ class XlsxTableHeader:
     
     def get_last_col(self):
         """
-        根据线条来确定最后一列的列号
+        根据线条来确定最后一列的列号及列字母
         """
         #从表头首行、末列开始遍历，寻找单元格顶部分割线与首列一样的
         self.theader_end_col = ""
@@ -92,6 +94,7 @@ class XlsxTableHeader:
             #if cur_cell.style.border.top.style == theader_top_line:
             if cur_cell.value != None:
                 self.theader_end_col = ce.get_column_letter(i)
+                self.theader_end_col_num = i
                 break
         return self.theader_end_col
     
@@ -105,10 +108,20 @@ class XlsxTableHeader:
     
     def col_row_range(self):
         """
-        获取行号和列号的范围
+        获取行号和列号的范围 A4:Q7 -> [4,7] [A,Q]
         """
-        self.colnum_range = [self.theader_range[0],self.theader_range[3]]
-        self.rownum_range = [self.theader_range[1],self.theader_range[4]]
+        cell_start,cell_end = self.theader_range.split(":")
+        min_col,min_row = ce.column_index_from_string(self.ws[cell_start].column),self.ws[cell_start].row
+        max_col,max_row = ce.column_index_from_string(self.ws[cell_end].column),self.ws[cell_end].row
+        self.rownum_range = [min_row,max_row]
+        self.colnum_range = [ce.get_column_letter(min_col),ce.get_column_letter(max_col)]
+        #pos = self.theader_range.find(":")
+        #if len(self.theader_range[pos+1:]) == 2:
+        #    self.colnum_range = [self.theader_range[0],self.theader_range[3]]
+        #    self.rownum_range = [self.theader_range[1],self.theader_range[4]]
+        #elif len(self.theader_range[pos+1:]) == 3:
+        #    self.colnum_range = [self.theader_range[0],self.theader_range[3:5]]
+        #    self.rownum_range = [self.theader_range[1],self.theader_range[5]]
     
     def get_merged_range(self):
         """
@@ -127,30 +140,33 @@ class XlsxTableHeader:
         """
         self.theader_merged_ranges = []
         for cell_range in self.merged_ranges:
-            if ord(cell_range[0]) >= ord(self.colnum_range[0]) and ord(cell_range[3]) <= ord(self.colnum_range[1]) \
-            and ord(cell_range[1]) >= ord(self.rownum_range[0]) and ord(cell_range[4]) <= ord(self.rownum_range[1]):
+            cell_start,cell_end = cell_range.split(":") 
+            #判断区域的起始 和 结尾单元格是否属于表头
+            #print ce.column_index_from_string(self.ws[cell_start].column)
+            if self.theader_start_col_num <= ce.column_index_from_string(self.ws[cell_start].column) <= self.theader_end_col_num \
+               and self.rownum_range[0] <= self.ws[cell_start].row <= self.rownum_range[1] \
+               and self.theader_start_col_num <= ce.column_index_from_string(self.ws[cell_end].column) <= self.theader_end_col_num \
+               and self.rownum_range[0] <= self.ws[cell_end].row <= self.rownum_range[1]:
                 self.theader_merged_ranges.append(cell_range)
+
         self.theader_merged_ranges.sort()
         return self.theader_merged_ranges
     
     def get_all_cells(self,cell_ranges):
         """
-        根据给定的区域，获取该区域中的所有单元格
+        根据给定的区域，获取该区域中的所有单元格 A4:A5
         """
         result_cells = []
         min_col = 0
         min_row = 0
         max_col = 0
         max_row = 0
-        l = list(cell_ranges)
-        if len(l) == 5 and l[2] == ":":
-            min_col,min_row,max_col,max_row = ord(l[0]),ord(l[1]),ord(l[3]),ord(l[4])
-        else:
-            print "行或者列超出了限制，不能大于26列，大于9行"
-        #print min_col,min_row,max_col,max_row
+        cell_start,cell_end = cell_ranges.split(":")
+        min_col,min_row = ce.column_index_from_string(self.ws[cell_start].column),self.ws[cell_start].row
+        max_col,max_row = ce.column_index_from_string(self.ws[cell_end].column),self.ws[cell_end].row
         for c_t in range(min_col,max_col+1):
             for r_t in range(min_row,max_row+1):
-                result_cells.append(chr(c_t)+chr(r_t))
+                result_cells.append(ce.get_column_letter(c_t)+str(r_t))
         return result_cells
     
     def get_not_merged_cells(self):
@@ -166,7 +182,7 @@ class XlsxTableHeader:
     
     def get_max_range(self,cells_range):
         """
-        获取包含合并单元格的最大区域
+        获取包含合并单元格的最大区域 ['AA5:AE5']
         """
         cells = []
         min_col = 0
@@ -174,22 +190,20 @@ class XlsxTableHeader:
         max_col = 0
         max_row = 0
         for cell_range in cells_range:
-            if len(cell_range) == 5 and cell_range[2] == ":":
                 cells += cell_range.split(":")
-            else:
-                print "行或者列超出了限制，不能大于26列，大于9行"
-        min_col = max_col = ord(cells[0][0])
-        min_row = max_row = ord(cells[0][1])
-        for cell in cells:
-            if ord(cell[0]) <= min_col:
-                min_col = ord(cell[0])
-            if ord(cell[0]) >= max_col:
-                max_col = ord(cell[0])
-            if ord(cell[1])<=min_row:
-                min_row = ord(cell[1])
-            if ord(cell[1])>=max_row:
-                max_row = ord(cell[1])  
-        return chr(min_col) + chr(min_row) + ":" + chr(max_col) + chr(max_row)
+                
+        min_col = max_col = ce.column_index_from_string(self.ws[cells[0]].column)
+        min_row = max_row = self.ws[cells[0]].row
+        for cur_cell in cells:
+            if ce.column_index_from_string(self.ws[cur_cell].column) <= min_col:
+                min_col = ce.column_index_from_string(self.ws[cur_cell].column)
+            if ce.column_index_from_string(self.ws[cur_cell].column) >= max_col:
+                max_col = ce.column_index_from_string(self.ws[cur_cell].column)
+            if self.ws[cur_cell].row <= min_row:
+                min_row = self.ws[cur_cell].row
+            if self.ws[cur_cell].row >= max_row:
+                max_row = self.ws[cur_cell].row  
+        return ce.get_column_letter(min_col) + str(min_row) + ":" + ce.get_column_letter(max_col) + str(max_row)
     
     def get_can_merged_range(self,not_merged_cells_list):
         """
@@ -202,9 +216,9 @@ class XlsxTableHeader:
             #print cur_cell
             samecol_set = set()
             #samecol_set.add(cell)
-            for cell in tmp_set:
-                if cur_cell[0] == cell[0]:
-                    samecol_set.add(cell)
+            for cell_ in tmp_set:
+                if self.ws[cell_].column == self.ws[cur_cell].column:
+                    samecol_set.add(cell_)
                 #print cell,
             tmp_set = tmp_set - samecol_set
             samecol_set.add(cur_cell)
@@ -290,10 +304,10 @@ class XlsxTableHeader:
         获取单元格内容，按照二维数组存储每个单元格的内容
         """
         self.content = []
-        for i in range(ord(self.rownum_range[0]),ord(self.rownum_range[1])+1):
+        for i in range(self.rownum_range[0],self.rownum_range[1]+1):
             tmp_list = []
-            for j in range(ord(self.colnum_range[0]),ord(self.colnum_range[1])+1):
-                tmp_list.append(self.ws[chr(j)+chr(i)].value)
+            for j in range(self.theader_start_col_num,self.theader_end_col_num+1):
+                tmp_list.append(self.ws[ce.get_column_letter(j)+str(i)].value)
             self.content.append(tmp_list)
         return self.content
         
@@ -303,7 +317,7 @@ def ch_en_xlsxcomp():
     根据给定的中英文对应表格，完成中英文表头的对应输出
     """
     fout = open("TableHeaderContent.txt",'a')
-    #flog = open("log.txt","w")
+    flog = open("log.txt","w")
     conf_file = open("conf.data","r")
     conf_lines = conf_file.readlines()
     ch_dir = ""
@@ -324,6 +338,7 @@ def ch_en_xlsxcomp():
         ch_xlsx_name = ch_dir + filename
         en_xlsx_name = en_dir + filename
         print "当前处理文件：",filename
+        flog.write(filename+"\n")
         ch_xl = XlsxTableHeader(ch_xlsx_name)
         en_xl = XlsxTableHeader(en_xlsx_name)
         fout.write(filename+"----------\n")
@@ -335,17 +350,25 @@ def ch_en_xlsxcomp():
                     for idx_col in range(len(ch_content[idx_row])):
                         if (ch_content[idx_row][idx_col] != None and ch_content[idx_row][idx_col] != "") \
                             or (en_content[idx_row][idx_col] != None and en_content[idx_row][idx_col] != ""):
-                            ch_ = ch_content[idx_row][idx_col]
-                            en_ = en_content[idx_row][idx_col]
-                            if ch_:
-                                ch_ = ch_.replace("\n"," ")
-                            if en_:
-                                en_ = en_.replace("\n"," ")
-                            #print ch_,"||",en_
-                            fout.write(ch_.encode('UTF-8'))
-                            fout.write("||")
-                            fout.write(en_.encode('UTF-8'))
-                            fout.write("\n")
+                            try:
+                                ch_ = ch_content[idx_row][idx_col]
+                                en_ = en_content[idx_row][idx_col]
+                                if type(ch_) == unicode:
+                                    ch_ = ch_.replace("\n"," ")
+                                if type(en_) == unicode:
+                                    en_ = en_.replace("\n"," ")
+                                if ch_ == None:
+                                    ch_ = u"None"
+                                if en_ == None:
+                                    en_ = u"None"
+                                #print ch_,"||",en_
+                                fout.write(ch_.encode('UTF-8'))
+                                fout.write("||")
+                                fout.write(en_.encode('UTF-8'))
+                                fout.write("\n")
+                            except:
+                                fout.write(ch_.encode('UTF-8'))
+                                fout.write("value error \n")
                         else:
                             pass    
             else:
@@ -354,21 +377,21 @@ def ch_en_xlsxcomp():
             fout.write("文件初始化没有完成\n")
             print "文件",filename,"有错误，请检查"
     fout.close()
+    flog.close()
     print "Compare End!"
 
 
 if __name__ == "__main__":
     ch_en_xlsxcomp()
-    print "End!"
-    #ch_xl = XlsxTableHeader("B0401c.xlsx")
+    #ch_xl = XlsxTableHeader("./ch_xlsx/A0101a.xlsx")
     #if ch_xl.start:
     #    ch_xl.get_theader_content()
-        #for line in ch_xl.content:
-        #    for item in line:
-        #        print item,"|",
-        #    print "-->"
+    #    for line in ch_xl.content:
+    #        for item in line:
+    #            print item,"|",
+    #        print "-->"
         #print "---"
-    
+    print "End!"
     
     
         
